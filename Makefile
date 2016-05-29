@@ -10,14 +10,14 @@ vpath %.cpp $(SOURCE_DIR)
 LIB_DIR := ./clipper
 
 #list of source,object, and dependency files
-SOURCES = demo.cpp graphics.cpp main.cpp pixel.cpp polygon.cpp potential.cpp util.cpp 
+SOURCES = color.cpp demo.cpp graphics.cpp main.cpp pixel.cpp polygon.cpp potential.cpp util.cpp 
 OBJECTS = $(addprefix $(OBJECT_DIR)/, $(SOURCES:.cpp=.o))
 DEPENDS = $(addprefix $(OBJECT_DIR)/, $(SOURCES:.cpp=.d))
 INCLUDE = ./
 
 #list of libraries to include
 LIBS = 
-LDFLAGS = '-Wl,-rpath=/usr/local/lib/OpenCV_Debug/lib'
+LDFLAGS = '-Wl,-rpath=/usr/local/lib/OpenCV_Debug/lib:./clipper'
 
 #compiler
 CXX = g++
