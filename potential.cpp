@@ -154,12 +154,30 @@ float DlLinePotential::ComputePotential( const Point& pt ) const{
   Vec2f xb = p1 - pt;
   float a = cv::norm( xa );
   float b = cv::norm( xb );
-  float ang = std::abs(Math::Angle( xa, xb ));
+  //float ang = std::abs(Math::Angle( xa, xb ));
+  float ang = (Math::Angle( xa, xb ));
   float t = std::tan( ang / 2.0f );
-  float val = (1/a + 1/b) * t;
+  float val = 0.0f;
 
   //compute differently depending on degree of potential
+  switch( m_degree ){
+    case 1:
+      val = (1/a + 1/b) * t;
+      break;
+    case 3:
+      {
+        float k = (1/a + 1/b);
+        val = (t/3)*(1/std::pow(a,3) + 1/std::pow(b,3))+
+          ((t+std::pow(t,3))/6)*std::pow(k,3);
+      }
+      break;
+    default:
+      assert( false );
+      throw std::exception();
+      break;
+  };
 
+  val = std::abs(val);
   bool cw = Math::TurnTest( p0, p1, pt );
   if ( cw ) val *= -1;
   return val;
@@ -167,7 +185,26 @@ float DlLinePotential::ComputePotential( const Point& pt ) const{
 /////////////////////////////////////////////////////////////////
 float DlLinePotential::ComputeDistance( const Point& pt ) const{
   float potential = ComputePotential( pt );
-  float dist = 1.0f/potential;
+
+  //normalize depending on degree
+  float norm = 0.0f;
+  switch( m_degree ){
+    case 1:
+      norm = 2.0f;
+      break;
+    case 3:
+      norm = 4.0/3.0;
+      break;
+    default:
+      assert( false );
+      throw std::exception();
+      break;
+  };
+
+  //float dist = 1.0f/(potential/2.0f);
+  float dist = std::pow(std::abs(potential/norm), -1.0f/m_degree);
+  if( potential < 1 )
+    dist *= -1;
   return dist;
 }
 /////////////////////////////////////////////////////////////////

@@ -35,6 +35,10 @@ float Angle( const Vec2f& v0, const Vec2f& v1 );
 //positive in a RHS counter-clockwsie vector p0p1
 bool TurnTest( const Point& p0, const Point& p1, const Point& p2 );
 
+//finite differences method to calculate derivatives
+//assume delta = 2 * epsilon
+float FiniteDifferences( float val0, float val1, float epsilon );
+
 //distance from point to line segment
 //not needed for now
 

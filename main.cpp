@@ -20,7 +20,10 @@ int main( int argc, char* argv[] ){
   //Point p = Math::ProjectPointToLine( Point(0.25,0.50), Point(0.75,0.5), Point(0.5,0.0) ); 
   //cout << "projected point is " << p << endl;
 
-  Demo demo;
+  //DlDemo demo( 3 );
+  SlDemo demo( 3 );
+  demo.SetParameters( 0.07, 0.0, 0.5f );
+  //SlDemo demo( 3 );
   //demo.RunSimple();
   demo.Run();
   cv::waitKey();

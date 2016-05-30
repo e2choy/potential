@@ -12,7 +12,9 @@ BEGIN_NAMESPACE(SSDF)
 Demo::Demo(){
   m_width = 400;
   m_height = 400;
-  m_degree = 1;
+  m_offset = 0.07;
+  m_A = 0.0f;
+  m_B = 0.5f;
 }
 /////////////////////////////////////////////////////////////////
 Demo::~Demo(){
@@ -24,18 +26,36 @@ Demo::~Demo(){
   }
 }
 /////////////////////////////////////////////////////////////////
+void Demo::SetParameters( float offset, float A, float B ){
+  m_offset = offset;
+  m_A = A;
+  m_B = B;
+}
+
+/////////////////////////////////////////////////////////////////
 void Demo::RunSimple(){
   //demonstration
-  DlLinePotential* pot = new DlLinePotential( Point(0.25,0.5), Point(0.75,0.5), 1 );
+  Potential* pot = new DlLinePotential( Point(0.25,0.5), Point(0.75,0.5), 3 );
+  //Potential* pot = new LinePotential( Point(0.25,0.5), Point(0.75,0.5), 1 );
   m_combDist = Mat( m_height, m_width, CV_32F, cv::Scalar(-1.0f));
   for( size_t y = 0; y < m_height; ++y ){
     for( size_t x = 0; x < m_width; ++x ){
       Point pt(x/(float)m_width, y/(float)m_height);
+      float dist = pot->ComputeDistance( pt );
+      m_combDist.at<float>(y,x) = dist;
       //m_combDist.at<float>(y,x) = 1.0f/pot->ComputePotential( 
       //    Point(x/(float)m_width, y/(float)m_height) );
-      m_combDist.at<float>(y,x) = Math::DistancePointToLine( Point(0,0.5),Point(1,0.5),pt );
+      //m_combDist.at<float>(y,x) = Math::DistancePointToLine( Point(0,0.5),Point(1,0.5),pt );
     }
   }
+
+  //get derivatives value at 0.5,0.5
+  float deriv = Math::FiniteDifferences(
+      pot->ComputeDistance(Point(0.5,0.5001-0.0001f)),
+      pot->ComputeDistance(Point(0.5,0.5001+0.0001f)),
+      0.0001f
+      );
+  cout << "derivative is " << deriv << endl;
   cv::imshow("combDist", m_combDist );
   Mat combIso;
   Graphics::DrawIsocontours( m_combDist, combIso, 32.0 );
@@ -76,23 +96,14 @@ void Demo::SetupMTest(){
 
   //create the interior and exterior contours
   m_intPoly = Polygon( pts );
-  m_extPoly = m_intPoly.OffsetPolygon( 0.07f, 3 );
+  m_extPoly = m_intPoly.OffsetPolygon( m_offset, 3 );
 
   //create the potentials
-  CreatePotential( m_intPoly, m_intPots );
-  CreatePotential( m_extPoly, m_extPots );
+  CreatePotentials( m_intPoly, m_intPots );
+  CreatePotentials( m_extPoly, m_extPots );
 
   //create masks
   CreateMasks();
-}
-/////////////////////////////////////////////////////////////////
-void Demo::CreatePotential( const Polygon& polygon, Potentials& pots ){
-  for( const Polygon::Path& path : polygon.GetPaths()){
-    for( size_t i = 0; i < path.size(); ++i ){
-      Potential* pot = new DlLinePotential( path[i], path[(i+1)%path.size()], m_degree );
-      pots.push_back( pot );
-    }
-  }
 }
 /////////////////////////////////////////////////////////////////
 void Demo::CreateMasks(){
@@ -136,33 +147,16 @@ void Demo::ProcessPixel( int x, int y ){
   float dI = intDist;
   float dE = extDist;
   float   ratio = dI / (dI + dE);
-  float   distE = -dE / 2.0f;
-  float   distI = dI / 2.0f;
+  float   distE = -1.0f*(m_A + dE * m_B);
+  float   distI = m_A + dI * m_B;
 
   //if( dI < 0.0f ) ratio = 0.0f;
   //if( dE < 0.0f ) ratio = 1.0f;
 
   //compute the distance to the midway contour
-  float dist = Math::Smoothstep( ratio )*distI + 
-    Math::Smoothstep( 1 - ratio )*distE;
-  //float dist = ( ratio )*distI + ( 1 - ratio )*distE;
-  //dist = (dI-dE)/2.0f;
+  float dist =  Math::Smoothstep( ratio )*distI + 
+                Math::Smoothstep( 1 - ratio )*distE;
   m_combDist.at<float>( y, x ) = dist;
-  //if( dist > 0.0f ){
-  //  m_combDist.at<float>( y, x ) = 0;
-  //}else{
-  //  m_combDist.at<float>( y, x ) = 1;
-  //}
-}
-/////////////////////////////////////////////////////////////////
-float Demo::ComputeDistance( const Potentials& pots, const Point& pt ){
-  float total = 0.0f;
-  for( Potential* p : pots ){
-    total += p->ComputePotential( pt );
-  }
-  float pot = total;
-  float dist = std::pow(1.0f / pot, 1.0f/(float)m_degree);
-  return dist;
 }
 /////////////////////////////////////////////////////////////////
 void Demo::ShowImages(){
@@ -193,7 +187,71 @@ void Demo::ShowImages(){
   cv::imshow( "extIso",extIso);
   cv::imshow( "extDist",m_extDist);
   //cv::imshow( "extPolyMask", m_extMask );
+}
 
+
+/////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+DlDemo::DlDemo( int degree ):m_degree(degree){
+}
+/////////////////////////////////////////////////////////////////
+void  DlDemo::CreatePotentials( const Polygon& polygon, Potentials& pots ){
+  for( const Polygon::Path& path : polygon.GetPaths()){
+    for( size_t i = 0; i < path.size(); ++i ){
+      Potential* pot = new DlLinePotential( path[i], path[(i+1)%path.size()], m_degree );
+      pots.push_back( pot );
+    }
+  }
+}
+/////////////////////////////////////////////////////////////////
+float DlDemo::ComputeDistance( const Potentials& pots, const Point& pt ){
+  float total = 0.0f;
+  for( Potential* p : pots ){
+    total += p->ComputePotential( pt );
+  }
+  float pot = total;
+  //normalize depending on degree
+  float norm = 0.0f;
+  switch( m_degree ){
+    case 1:
+      norm = 2.0f;
+      break;
+    case 3:
+      norm = 4.0/3.0;
+      break;
+    default:
+      assert( false );
+      throw std::exception();
+      break;
+  };
+
+  float dist = std::pow(std::abs(pot/norm), -1.0f/m_degree);
+  return dist;
+}
+
+
+/////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+SlDemo::SlDemo( int degree ):m_degree(degree){
+}
+/////////////////////////////////////////////////////////////////
+void SlDemo::CreatePotentials( const Polygon& polygon, Potentials& pots ){
+  for( const Polygon::Path& path : polygon.GetPaths()){
+    for( size_t i = 0; i < path.size(); ++i ){
+      Potential* pot = new LinePotential( path[i], path[(i+1)%path.size()], m_degree );
+      pots.push_back( pot );
+    }
+  }
+}
+/////////////////////////////////////////////////////////////////
+float SlDemo::ComputeDistance( const Potentials& pots, const Point& pt ){
+  float total = 0.0f;
+  for( Potential* p : pots ){
+    total += p->ComputePotential( pt );
+  }
+  float pot = total;
+  float dist = std::pow(1.0f / pot, 1.0f/(float)m_degree);
+  return dist;
 }
 END_NAMESPACE
 

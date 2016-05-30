@@ -101,5 +101,11 @@ bool TurnTest( const Point& p0, const Point& p1, const Point& p2 ){
   float val = (p1.x - p0.x)*(p2.y - p0.y) - (p1.y - p0.y)*(p2.x - p0.x);
   return (val > 0);
 }
+/////////////////////////////////////////////////////////////////
+float FiniteDifferences( float val0, float val1, float epsilon ){
+  float derivative = (val1 - val0)/(2*epsilon);
+  return derivative;
+}
+
 END_NAMESPACE_2
 
